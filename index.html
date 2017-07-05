@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
+          integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css"
+          integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous"/>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
+            integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <meta charset="UTF-8"/>
+    <title>Round Robin Challenge</title>
+</head>
+<body>
+    <div class="col-sm-7">
+        <br/>
+        <div class="well" id="main" style="height: 568px; overflow-y: scroll;" >
+
+        </div>
+    </div>
+    <div class="col-sm-5">
+        <br/>
+        <div class="well" id="users" style="height: 150px; overflow-y: scroll;">
+            <!-- added from server -->
+        </div>
+        <div class="well" id="chat_body" style="height: 250px; overflow-y: scroll;">
+            <!-- added from server -->
+        </div>
+        <div class="well">
+            <input id="chat_input" class="form-control" type="text" placeholder="Say something!"/>
+            <br/>
+            <button class="form-control" id="chat_button"> Send </button>
+        </div>
+    </div>
+
+    <div class="well" id="private_message" style="position: absolute; top: 30%; left: 30%; z-index: 1; display: none">
+        <button class="btn btn-danger btn-xs" style="position: absolute; top: 3px; right: 3px;" id="close_private">x</button>
+        <input type="text" class="form-control" id="private_input" placeholder="Private message.."/>
+        <span id="private_span"><button class="form-control" id="private_button"> Send </button></span>
+    </div>
+
+
+    <script>
+        let name = 'guest', main, users, privateTo;
+        const GET = id => document.getElementById(id);
+        const alertSound = new Audio('http://owolfhu1.x10host.com/Oh_Hell_solo/img/sound.mp3');
+
+        main = GET('main');
+        users = GET('users');
+
+        GET('close_private').addEventListener('click', () => {
+            GET('private_message').style.display = 'none';
+        });
+
+        GET('private_button').addEventListener('click', () => {
+            socket.emit('private', {to: privateTo, message: GET('private_input').value});
+            GET('private_input').value = '';
+            GET('private_message').style.display = 'none';
+        });
+
+        GET('chat_button').addEventListener('click', () =>{
+            socket.emit('chat', GET('chat_input').value);
+            GET('chat_input').value = '';
+        });
+
+        const showUsers = userToId => {
+            let html = '<table class="table">';
+            let count = 0;
+            for (let person in userToId) {
+                count++;
+                html += `
+                    <tr>
+                        <td>
+                            <span style="font-size: smaller;">${count}</span>
+                        </td>
+                        <td>
+                            <b>${person}</b>
+                        </td>
+                        <td>
+                            <button class="btn btn-info btn-xs" id="${userToId[person]}">private message</button>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            html += '</table>';
+
+            users.innerHTML = html;
+
+            for (let person in userToId) {
+                GET(userToId[person]).addEventListener('click', () => {
+                    GET('private_message').style.display = 'block';
+                    privateTo = userToId[person];
+                });
+            }
+        };
+
+    </script>
+
+    <script>
+        let socket = io();
+
+        socket.on('setup_login', lobby => {
+            showUsers(lobby);
+            name = 'guest';
+            main.innerHTML = `
+                <br/>
+                <div class="well">
+                    <h1>Round Robin Challenge!</h1>
+                    <p>A story telling game by Orion</p>
+                </div>
+                <div class="form-horizontal">
+                    <div class="form-group">
+                        <label for="user_name" class="col-sm-2 control-label">Name</label>
+                        <div class="col-sm-10">
+                            <input type="text" class="form-control" id="user_name" placeholder="user name (1 - 10 char)"/>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="password" class="col-sm-2 control-label">Password</label>
+                        <div class="col-sm-10">
+                            <input type="password" class="form-control" id="password" placeholder="Password"/>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="col-sm-offset-2 col-sm-10">
+                            <button id="login_button" class="form-control">Sign in / Sign up</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            GET('login_button').addEventListener('click', () => {
+                if (GET('user_name').value.length > 0 && GET('user_name').value !== 'info')
+                    socket.emit('login', [GET('user_name').value, GET('password').value] );
+            });
+        });
+
+        socket.on('setup_game', () => {
+            main.innerHTML = `
+                <div id="wells"></div>
+                <div id="turn_input" class="well" style="display: none;">
+                    <textarea class="form-control" id="story_input"></textarea>
+                    <button class="form-control" id="turn_submit"> Submit </button>
+                </div>
+            `;
+
+            GET('turn_submit').addEventListener('click', () =>{
+                if (GET('story_input').value.length > 0) {
+                    socket.emit('turn', GET('story_input').value);//TODO
+                    GET('story_input').value = '';
+                    GET('turn_input').style.display = 'none';
+                }
+            });
+
+        });
+
+        socket.on('get_name', n => { name = n; });
+
+        socket.on('chat', msg => {
+            GET('chat_body').innerHTML += `<p>${msg}</p>`;
+            GET('chat_body').scrollTop = GET('chat_body').scrollHeight;
+        });
+
+        socket.on('lobby', data => {
+            let tables = data.tables;
+            let lobby = data.lobby;
+            let user = data.user;
+            let html = '';
+
+            showUsers(lobby);
+
+            if (user.tableId === 'none')
+                html = `
+                    <div class="well">
+                        <p>to start a new table, enter a prompt and choose how many turns each writer will get.</p>
+                        <input type="number" id="turns" min="1" max="10" class="form-control" placeholder="Turns"/>
+                        <textarea id="prompt" class="form-control"></textarea>
+                        <button class="form-control" id="new_table"> Make Table </button>
+                    </div>
+                `;
+
+            //build table well for all existing tables
+            for (let tableId in tables) {
+                let table = tables[tableId];
+                html += `<div class="well">`;
+                html += `<h3>Prompt: ${table.info.prompt}</h3>`;
+                html += `<p>Writers will get ${table.info.turns} turns to add to the story.</p>`;
+
+                let count = 0;
+                let readyCount = 0;
+                for (let person in table)
+                    if (person !== 'info') {
+                        count++;
+                        if (table[person].ready === 'yes')
+                            readyCount++;
+                    }
+
+                let plural = '';
+                if (count > 1)
+                    plural = 's';
+                html += `
+                    <div class="dropdown">
+                    <button class="form-control dropdown-toggle" type="button"
+                    id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                    ${count} player${plural} at the table, ${readyCount} are ready.
+                    <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="dropdownMenu1">
+                `;
+
+                for (let person in table)
+                    if (person !== 'info')
+                        html += `<li>${person} ready: ${table[person].ready}</li>`;
+
+                html += `</ul></div>`;
+
+                if (name in table) {
+
+                    let text = 'not ready';
+                    if (table[name].ready === 'yes')
+                        text = 'ready';
+                    html += ` <button class="btn btn-default" id="ready"> ${text} </button>`;
+                    html += ` <button class="btn btn-default" id="leave"> leave table </button>`;
+
+                } else if (user.tableId === 'none')
+                    html += ` <button class="btn btn-default" id="join${table.info.id}"> Join Table </button>`;
+
+                html += `</div>`;
+            }
+
+            main.innerHTML = html;
+
+            if (user.tableId === 'none') {
+                GET('new_table').addEventListener('click', () => {
+                    socket.emit('new_table', {turns: GET('turns').value, prompt: GET('prompt').value});
+                });
+            }
+
+            if (user.tableId !== 'none') {
+                GET('ready').addEventListener('click', () => {
+                    socket.emit('ready');//TODO
+                });
+                GET('leave').addEventListener('click', () => {
+                    socket.emit('leave');//TODO
+                });
+            } else {
+                for (let table in tables) {
+                    GET(`join${table}`).addEventListener('click', () => {
+                        socket.emit('join_table', table);//TODO
+                    });
+                }
+            }
+        });
+
+        socket.on('game', game => {
+            if (game[name].ready) {
+                GET('turn_input').style.display = 'inherit';
+                alertSound.play();
+            }
+
+            GET('wells').innerHTML = `<div class="well"><h1>Prompt:</h1><h2>${game.info.prompt}</h2></div>`;
+
+            for (let i = 0; i < game.info.wells.length; i++) {
+                let button = '';
+                if (game.info.wells[i].name !== name)
+                    button = `<button id="like${i}" class="btn btn-success btn-xs">I like it!</button>`;
+
+                GET('wells').innerHTML += `
+                    <div class="well">
+                        <p>${game.info.wells[i].story}</p>
+                        ${button}
+                    </div>
+                `;
+                if (game.info.wells[i].name !== name)
+                    GET(`like${i}`).addEventListener('click', () => {
+                        socket.emit('like', i);//TODO
+                    });
+            }
+
+        });
+
+    </script>
+
+
+
+
+
+
+</body>
+
+
+
+
+
+
+
+</html>

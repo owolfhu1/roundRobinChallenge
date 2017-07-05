@@ -88,6 +88,14 @@ io.on('connection', socket => {
                 io.to(lobby[person]).emit('chat', `${user.name}: ${msg}`);
             }
         }
+
+        if (user.tableId in games) {
+            let game = games[user.tableId];
+            for (let person in game){
+                if (person !== 'info')
+                    io.to(game[person].id).emit('chat', `${user.name}: ${msg}`);
+            }
+        }
         
         //TODO add if user.tableId in games or whatever { chat to table }
     });
@@ -196,7 +204,19 @@ io.on('connection', socket => {
         }
         
     });
-    
+
+    socket.on('like', i => {
+        let game = games[user.tableId];
+
+        if (game.info.wells[i].likedBy.indexOf(user.name) === -1) {
+            game.info.wells[i].likedBy.push(user.name);
+            game[game.info.wells[i].name].points++;
+        }
+
+        console.log(game.info.wells[i].name + ' well was liked by ' +
+        user.name + ' total likes on this well: ' + game.info.wells[i].likedBy.length)
+
+    });
 });
 
 const startGame = tableId => {
@@ -243,10 +263,12 @@ const nextWriter = gameId => {
                 turns = game[person].turns;
         }
     }
-    
-    if (turns === game.info.turns)
+
+    console.log(game.info.turns);
+    if (turns === game.info.turns +1) {
+        console.log('ending game');
         endGame(gameId);//TODO
-    
+    }
     //make array of players with that many turns
     let players = [];
     for (let person in game) {
@@ -259,4 +281,6 @@ const nextWriter = gameId => {
     return players[Math.floor(Math.random() * players.length)];
     
 };
+
+//TODO think about how to end game
 

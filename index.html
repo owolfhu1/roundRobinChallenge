@@ -259,6 +259,15 @@
                 alertSound.play();
             }
 
+            let userMap = {};
+            for (let person in game) {
+                if (person !== 'info'){
+                    userMap[game[person].name] = game[person].id;
+                }
+            }
+            showUsers(userMap);
+
+
             GET('wells').innerHTML = `<div class="well"><h1>Prompt:</h1><h2>${game.info.prompt}</h2></div>`;
 
             for (let i = 0; i < game.info.wells.length; i++) {
@@ -274,7 +283,7 @@
                 `;
                 if (game.info.wells[i].name !== name)
                     GET(`like${i}`).addEventListener('click', () => {
-                        socket.emit('like', i);//TODO
+                        socket.emit('like', i);
                     });
             }
 
